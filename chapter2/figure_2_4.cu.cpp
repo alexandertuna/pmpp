@@ -2,6 +2,11 @@
 #include <iostream>
 #include <cuda_runtime.h>
 
+__global__
+void vecAddKernel(float* A, float* B, float* C, size_t n) {
+  // const auto i = threadIdx.x;
+}
+
 void vecAdd(float* A_h, float* B_h, float* C_h, size_t n) {
 
   const auto size = n * sizeof(float);
@@ -14,9 +19,17 @@ void vecAdd(float* A_h, float* B_h, float* C_h, size_t n) {
   cudaMalloc(&B_d, size);
   cudaMalloc(&C_d, size);
 
+  const cudaError_t err_A = cudaMemcpy(A_d, A_h, size, cudaMemcpyHostToDevice);
+  const cudaError_t err_B = cudaMemcpy(B_d, B_h, size, cudaMemcpyHostToDevice);
+  std::cout << cudaGetErrorString(err_A) << std::endl;
+  std::cout << cudaGetErrorString(err_B) << std::endl;
+
   for (size_t i = 0; i < n; ++i) {
     C_h[i] = A_h[i] + B_h[i];
   }
+
+  const cudaError_t err_C = cudaMemcpy(C_h, C_d, size, cudaMemcpyDeviceToHost);
+  std::cout << cudaGetErrorString(err_C) << std::endl;
 
   cudaFree(A_d);
   cudaFree(B_d);
