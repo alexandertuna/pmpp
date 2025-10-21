@@ -1,10 +1,14 @@
 #include <stddef.h>
 #include <iostream>
-#include <cuda_runtime.h>
 
 __global__
 void vecAddKernel(float* A, float* B, float* C, size_t n) {
-  // const auto i = threadIdx.x;
+  const size_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  // printf("i %lu\n", i);
+  if (i < n) {
+    printf("i %lu\n", i);
+    C[i] = A[i] + B[i];
+  }
 }
 
 void vecAdd(float* A_h, float* B_h, float* C_h, size_t n) {
@@ -24,8 +28,16 @@ void vecAdd(float* A_h, float* B_h, float* C_h, size_t n) {
   std::cout << cudaGetErrorString(err_A) << std::endl;
   std::cout << cudaGetErrorString(err_B) << std::endl;
 
-  for (size_t i = 0; i < n; ++i) {
-    C_h[i] = A_h[i] + B_h[i];
+  if (false) {
+    std::cout << "Adding on CPU" << std::endl;
+    for (size_t i = 0; i < n; ++i) {
+      C_h[i] = A_h[i] + B_h[i];
+    }
+  } else {
+    std::cout << "Adding on GPU" << std::endl;
+    size_t n_blocks{4};
+    size_t n_threads{256};
+    vecAddKernel<<<n_blocks, n_threads>>>(A_d, B_d, C_d, n);
   }
 
   const cudaError_t err_C = cudaMemcpy(C_h, C_d, size, cudaMemcpyDeviceToHost);
