@@ -1,0 +1,68 @@
+#include <vector>
+#include <iostream>
+
+__global__
+void square_matrix_kernel(float* in, float* out, size_t nrows, size_t ncols) {
+  const size_t idx{blockIdx.x * blockDim.x + threadIdx.x};
+  const size_t row{idx / ncols};
+  const size_t col{idx % ncols};
+  // printf("idx=%lu\n", idx);
+  if (idx < nrows * ncols) {
+    printf("idx=%lu => row=%lu, col=%lu\n", idx, row, col);
+    // element row i, col j => idx = row_i*ncols + col_j
+    // idx idx => row = idx / ncols, col = idx % ncols
+    // row i, col j -> left-row-i dot right-col-j
+    float dotproduct{0};
+    for (size_t it{0}; it < ncols; ++it) {
+      // left-row-i-element-it * right-col-j-element-it
+      const size_t idx_l = row*ncols + it;
+      const size_t idx_r = it*ncols + col;
+      dotproduct += (in[idx_l] * in[idx_r]);
+    }
+    out[idx] = dotproduct;
+  }
+}
+
+std::vector<float> square_matrix(const std::vector<float>& array_h, size_t nrows, size_t ncols) {
+  float* array_d;
+  float* arraysq_d;
+  const size_t size = array_h.size();
+  const size_t bytes = size * sizeof(float);
+  auto arraysq_h = std::vector<float>(size);
+
+  const auto err_d = cudaMalloc(&array_d, bytes);
+  const auto err_sq_d = cudaMalloc(&arraysq_d, bytes);
+  const auto err_h2d = cudaMemcpy(array_d, array_h.data(), bytes, cudaMemcpyHostToDevice);
+
+  const size_t nblocks{1};
+  const size_t nthreads{8};
+  square_matrix_kernel<<<nblocks, nthreads>>>(array_d, arraysq_d, nrows, ncols);
+
+  const auto err_d2h = cudaMemcpy(arraysq_h.data(), arraysq_d, bytes, cudaMemcpyDeviceToHost);
+  return arraysq_h;
+}
+
+void ascii_image(const std::vector<float>& img,
+                 const size_t nrows,
+                 const size_t ncols) {
+  if (img.size() != nrows*ncols) {
+    throw std::runtime_error("ascii image is upset");
+  }
+  for (size_t it = 0; it < img.size(); ++it) {
+    if (it % ncols == 0) {
+      printf("\n");
+    }
+    printf("%.2f ", img.at(it));
+  }
+  printf("\n");
+}
+
+int main() {
+  const size_t nrows{2};
+  const size_t ncols{2};
+  const std::vector<float> array{1, 2, 3, 4};
+  ascii_image(array, nrows, ncols);
+  const auto sq = square_matrix(array, nrows, ncols);
+  ascii_image(sq, nrows, ncols);
+  return 0;
+}
